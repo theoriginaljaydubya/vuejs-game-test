@@ -21,7 +21,6 @@
                 </div>
                 <Knob v-model="health.current" :min="0" :max="health.max" :valueColor="barClass"></Knob>
             </div>
-            <!-- <ProgressBar :value="percentHealth" class="creature-health" :class="barClass"></ProgressBar> -->
         </template>
     </Card>
 </template>
@@ -29,7 +28,6 @@
 <script setup>
 import { computed, ref } from 'vue'
 import Card from 'primevue/card';
-import ProgressBar from 'primevue/progressbar';
 import Inplace from 'primevue/inplace';
 import InputText from 'primevue/inputtext';
 import Knob from 'primevue/knob';
@@ -37,19 +35,10 @@ import Knob from 'primevue/knob';
 const props = defineProps({
     id: String,
     name: String,
-    // health: Number,
-    // maxHealth: Number,
     health: Object,
 });
 
 const percentHealth = computed(() => Math.floor((props.health.current / props.health.max) * 100));
-const knobTemplate = computed(() => health.value.current);
-
-// const barStyles = computed(() => {
-//     return props.health < 0
-//         ? { width: '0%' }
-//         : { width: percentHealth.value + '%' };
-// });
 
 const barClass = computed(() => {
     return percentHealth.value > 66
@@ -112,22 +101,4 @@ const barClass = computed(() => {
         }
     }
 }
-
-
-
-
-// .healthbar {
-//     width: 100%;
-//     height: 40px;
-//     border: 1px solid var(--p-stone-700, #575757);
-//     border-radius: var(--p-border-radius-lg, .5rem);
-//     margin: 1rem 0;
-//     background: var(--pprimary-50, #fde5e5);
-// }
-
-// .healthbar-value {
-//     background-color: var(--p-primary-color);
-//     width: 100%;
-//     height: 100%;
-//     border-radius: var(--p-border-radius-lg, .5rem);
-// }</style>
+</style>
