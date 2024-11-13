@@ -39,26 +39,17 @@
             <div class="log">
               <div v-for="(item, index) in slotProps.items" :key="index" class="log-item">
                 <div>{{ item.round }}</div>
-                <div :class="{ 'log-player': item.who === 'player', 'log-monster': item.who === 'monster' }">
+                <div :class="{ 'log-player': item.who === 'Player', 'log-monster': item.who === 'Monster' }">
                   {{ item.who }}
                 </div>
-                <div>{{ item.action }}</div>
+                <div :class="{ 'miss': item.action === 'missed' }">
+                  {{ item.action }}
+                </div>
                 <div>{{ item.value }}</div>
               </div>
             </div>
           </template>
         </DataView>
-
-        <!-- <ul>
-          <li v-for="log in logs">
-            <div :class="{ 'log-player': log.who === 'player', 'log-monster': log.who === 'monster' }">
-              {{ log.who }}
-            </div>
-            <div>{{ log.action }}</div>
-            <div>{{ log.value }}</div>
-            <div>{{ log.round }}</div>
-          </li>
-        </ul> -->
 
         <h2>Stats</h2>
         <div>Player Average Damage</div>
@@ -95,7 +86,7 @@ const player = reactive({
   id: 'player',
   name: 'Player',
   health: { current: 200, max: 200 },
-  offensiveAbility: 100,
+  offensiveAbility: 250,
   defensiveAbility: 100,
   attack: {
     melee: { min: 15, max: 25, name: 'melee' },
@@ -217,13 +208,23 @@ const setHealth = (creature, value) => {
 };
 
 const attack = (attacker, target, attackData) => {
-  if (isSuccessfulHit(attacker.offensiveAbility, target.defensiveAbility)) {
-    const damage = math.randomInt(attackData.min, attackData.max + 1);
-    decreaseHealth(target, damage);
-    log(attacker.name, attackData.name, { damage, OA: attacker.offensiveAbility, DA: target.defensiveAbility });
-  } else {
-    log(attacker.name, 'missed', { damage: 0, OA: attacker.offensiveAbility, DA: target.defensiveAbility });
-  }
+  const hitData = getHitData(attacker.offensiveAbility, target.defensiveAbility)
+  const damage = (hitData.isSuccess
+    ? math.randomInt(attackData.min, attackData.max + 1)
+    : 0) * hitData.damageMultiplier;
+
+  decreaseHealth(target, damage);
+
+  const attackType = hitData.isSuccess
+    ? hitData.damageMultiplier > 1
+      ? `${attackData.name} critical`
+      : attackData.name
+    : 'missed';
+  log(
+    attacker.name,
+    attackType,
+    { damage, hitData }
+  );
 };
 
 const healPlayer = (data) => {
@@ -232,10 +233,22 @@ const healPlayer = (data) => {
   log(player.name, 'healed', value);
 }
 
-const isSuccessfulHit = (oa, da) => {
+const getHitData = (oa, da) => {
   const pth = calculateToHit(oa, da);
   const max = (pth > 100 ? pth : 100) + 1;
-  return math.randomInt(0, max) <= pth;
+  const roll = math.randomInt(0, max);
+  const isSuccess = roll <= pth;
+  const damageMultiplier = roll >= 90
+    ? roll >= 100
+      ? 1.5
+      : 1.25
+    : 1;
+  return {
+    pth,
+    roll,
+    damageMultiplier,
+    isSuccess
+  };
 };
 
 const calculateToHit = (oa, da) => {
@@ -295,6 +308,10 @@ header {
     display: grid;
     grid-template-columns: subgrid;
     grid-column: span 4;
+
+    &:has(.miss) {
+      background-color: rgb(196, 196, 0);
+    }
   }
 
   ul {
