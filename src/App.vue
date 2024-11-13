@@ -18,12 +18,15 @@
           <PrimevueButton @click="startGame">Start Over</PrimevueButton>
         </section>
 
-        <section id="controls" v-else>
-          <PrimevueButton @click="doBattleRound(player.attack.melee)">Attack</PrimevueButton>
-          <PrimevueButton :disabled="specialAttackDisabled" @click="doBattleRound(player.attack.special)">Special Attack
-          </PrimevueButton>
-          <PrimevueButton @click="doBattleRound(player.attack.heal)">Heal</PrimevueButton>
-          <PrimevueButton @click="battle">{{ battleButtonText }}</PrimevueButton>
+        <section class="controls" v-else>
+          <div>
+            <PrimevueButton @click="doBattleRound(player.attack.melee)">Attack</PrimevueButton>
+            <PrimevueButton :disabled="specialAttackDisabled" @click="doBattleRound(player.attack.special)">
+              Special Attack
+            </PrimevueButton>
+            <PrimevueButton @click="doBattleRound(player.attack.heal)">Heal</PrimevueButton>
+            <PrimevueButton @click="battle">{{ battleButtonText }}</PrimevueButton>
+          </div>
         </section>
       </div>
 
@@ -56,6 +59,7 @@
             <div>{{ log.round }}</div>
           </li>
         </ul> -->
+
         <h2>Stats</h2>
         <div>Player Average Damage</div>
         <div>{{ playerDamageAverage }}</div>
@@ -120,13 +124,19 @@ const specialAttackDisabled = computed(() =>
   || player.health === 0
   || monster.health === 0
 );
-const playerDamageAverage = computed(() => {
-  const numbers = logs.value.filter(x => x.who === 'Player').map((x) => x.value);
-  return numbers.length ? math.round(math.mean(numbers), 2) : 0;
-});
-const monsterDamageAverage = computed(() => {
-  const numbers = logs.value.filter(x => x.who === 'Monster').map((x) => x.value);
-  return numbers.length ? math.round(math.mean(numbers), 2) : 0;
+
+const playerDamageAverage = ref(0);
+const monsterDamageAverage = ref(0);
+watch(logs, () => {
+  const numbers = logs.value
+    .filter(x => x.who === 'Player' && x.action !== 'healed')
+    .map((x) => x.value.damage);
+  playerDamageAverage.value = numbers.length ? math.round(math.mean(numbers), 2) : 0;
+
+  const numbers2 = logs.value
+    .filter(x => x.who === 'Monster')
+    .map((x) => x.value.damage);
+  monsterDamageAverage.value = numbers2.length ? math.round(math.mean(numbers2), 2) : 0;
 });
 
 watch([() => monster.health.current, () => player.health.current],
@@ -210,9 +220,9 @@ const attack = (attacker, target, attackData) => {
   if (isSuccessfulHit(attacker.offensiveAbility, target.defensiveAbility)) {
     const damage = math.randomInt(attackData.min, attackData.max + 1);
     decreaseHealth(target, damage);
-    log(attacker.name, attackData.name, damage);
+    log(attacker.name, attackData.name, { damage, OA: attacker.offensiveAbility, DA: target.defensiveAbility });
   } else {
-    log(attacker.name, 'missed', 0);
+    log(attacker.name, 'missed', { damage: 0, OA: attacker.offensiveAbility, DA: target.defensiveAbility });
   }
 };
 
@@ -224,7 +234,8 @@ const healPlayer = (data) => {
 
 const isSuccessfulHit = (oa, da) => {
   const pth = calculateToHit(oa, da);
-  return math.randomInt(0, 100) <= pth;
+  const max = (pth > 100 ? pth : 100) + 1;
+  return math.randomInt(0, max) <= pth;
 };
 
 const calculateToHit = (oa, da) => {
@@ -253,31 +264,30 @@ header {
 
 .content {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: 2rem;
 }
 
 .creatures {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1fr 1fr 1fr;
   gap: 1rem;
 }
 
-#controls {
+.controls>div {
   display: flex;
   gap: 1rem;
 }
 
-#controls,
-.game-over {
-  grid-column: 1 / 2 span;
-  justify-self: center;
-}
+// .game-over {
+//   grid-column: 1 / 2 span;
+//   justify-self: center;
+// }
 
 #log {
   .log {
     display: grid;
-    grid-template-columns: 3rem 1fr 1fr 3rem;
+    grid-template-columns: 3rem 9rem 9rem 1fr;
     gap: .5rem;
   }
 
