@@ -75,21 +75,21 @@ import GameCreature from '@/components/GameCreature.vue';
 const monster = reactive({
   id: 'monster',
   name: 'Monster',
-  health: { current: 400, max: 400 },
-  offensiveAbility: 50,
-  defensiveAbility: 50,
+  health: { current: 800, max: 800 },
+  offensiveAbility: 150,
+  defensiveAbility: 150,
   attack: {
-    melee: { min: 15, max: 35, name: 'melee' }
+    melee: { min: 25, max: 50, name: 'melee' }
   }
 });
 const player = reactive({
   id: 'player',
   name: 'Player',
-  health: { current: 200, max: 200 },
-  offensiveAbility: 250,
-  defensiveAbility: 100,
+  health: { current: 300, max: 300 },
+  offensiveAbility: 1500,
+  defensiveAbility: 500,
   attack: {
-    melee: { min: 15, max: 25, name: 'melee' },
+    melee: { min: 25, max: 50, name: 'melee' },
     special: {
       min: 50,
       max: 75,
@@ -211,14 +211,12 @@ const attack = (attacker, target, attackData) => {
   const hitData = getHitData(attacker.offensiveAbility, target.defensiveAbility)
   const damage = (hitData.isSuccess
     ? math.randomInt(attackData.min, attackData.max + 1)
-    : 0) * hitData.damageMultiplier;
+    : 0) * hitData.hitType.multiplier;
 
   decreaseHealth(target, damage);
 
   const attackType = hitData.isSuccess
-    ? hitData.damageMultiplier > 1
-      ? `${attackData.name} critical`
-      : attackData.name
+    ? `${attackData.name} ${hitData.hitType.type}`
     : 'missed';
   log(
     attacker.name,
@@ -237,18 +235,23 @@ const getHitData = (oa, da) => {
   const pth = calculateToHit(oa, da);
   const max = (pth > 100 ? pth : 100) + 1;
   const roll = math.randomInt(0, max);
-  const isSuccess = roll <= pth;
-  const damageMultiplier = roll >= 90
-    ? roll >= 100
-      ? 1.5
-      : 1.25
-    : 1;
   return {
     pth,
     roll,
-    damageMultiplier,
-    isSuccess
+    hitType: getDamageType(pth, roll),
+    isSuccess: roll <= pth
   };
+};
+
+const getDamageType = (pth, roll) => {
+  if (roll < 90) return { type: 'normal', multiplier: 1 };
+  if (roll < 100) return { type: 'critical 1', multiplier: 1.25 };
+  if (roll < 110) return { type: 'critical 2', multiplier: 1.5 };
+  if (roll < 120) return { type: 'critical 3', multiplier: 1.75 };
+  if (roll < 130) return { type: 'critical 4', multiplier: 2 };
+  if (roll < 140) return { type: 'critical 5', multiplier: 2.5 };
+  if (roll < 150) return { type: 'critical 6', multiplier: 3 };
+  return { type: 'demi-god', multiplier: 5 };
 };
 
 const calculateToHit = (oa, da) => {
