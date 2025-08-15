@@ -2,24 +2,59 @@
     <Card class="creature">
         <template #title>{{ name }}</template>
         <template #content>
-            <div class="creature-props">
+            <div v-if="editing === false" class="creature-props">
                 <div>
-                    <Inplace :closable="true">
+                    <Inplace>
                         <template #display>
                             <label>Health:</label>
                             <div>{{ health.current }}/{{ health.max }}</div>
                         </template>
-                        <template #content>
+                        <template #content="{ closeCallback }">
                             <div class="edit-health">
                                 <label>Current</label>
-                                <InputText v-model="health.current" autofocus></InputText>
+                                <InputText v-model="currentHealth" autofocus></InputText>
                                 <label>Max</label>
-                                <InputText v-model="health.max" />
+                                <InputText v-model="maxHealth" />
                             </div>
+                            <div>
+                                <PrimevueButton @click="updateHealth(closeCallback)">Save</PrimevueButton>
+                                <PrimevueButton @click="closeCallback">X</PrimevueButton>
+                            </div>
+                        </template>
+                    </Inplace>
+                    <div>OA: {{ offensiveAbility }}</div>
+                    <div>DA: {{ defensiveAbility }}</div>
+                    <Inplace>
+                        <template #display>
+                            <div>OA: {{ offensiveAbility }}</div>
+                        </template>
+                        <template #content="{ closeCallback }">
+                            <InputText v-model="localOA" size="small" autofocus></InputText>
+                            <PrimevueButton @click="updateOa(closeCallback)">Save</PrimevueButton>
+                            <PrimevueButton @click="closeCallback">X</PrimevueButton>
+                        </template>
+                    </Inplace>
+                    <Inplace>
+                        <template #display>
+                            <div>DA: {{ defensiveAbility }}</div>
+                        </template>
+                        <template #content="{ closeCallback }">
+                            <InputText v-model="localDA" size="small" autofocus></InputText>
+                            <PrimevueButton @click="updateDa(closeCallback)">Save</PrimevueButton>
+                            <PrimevueButton @click="closeCallback">X</PrimevueButton>
                         </template>
                     </Inplace>
                 </div>
                 <Knob v-model="health.current" :min="0" :max="health.max" :valueColor="barClass"></Knob>
+            </div>
+            <div v-else>
+                Under construction
+            </div>
+            <div>
+                <PrimevueButton @click="toggleEdit">
+                    <span v-if="editing === false">Edit</span>
+                    <span v-else>Save</span>
+                </PrimevueButton>
             </div>
         </template>
     </Card>
@@ -31,12 +66,23 @@ import Card from 'primevue/card';
 import Inplace from 'primevue/inplace';
 import InputText from 'primevue/inputtext';
 import Knob from 'primevue/knob';
+import PrimevueButton from 'primevue/button';
 
 const props = defineProps({
     id: String,
     name: String,
     health: Object,
+    offensiveAbility: Number,
+    defensiveAbility: Number,
 });
+
+const emit = defineEmits(['updateOa', 'updateDa', 'updateHealth']);
+
+const editing = ref(false);
+const localOA = ref(props.offensiveAbility);
+const localDA = ref(props.defensiveAbility);
+const currentHealth = ref(props.health.current);
+const maxHealth = ref(props.health.max);
 
 const percentHealth = computed(() => Math.floor((props.health.current / props.health.max) * 100));
 
@@ -47,6 +93,25 @@ const barClass = computed(() => {
             ? 'yellow'
             : 'red';
 });
+
+const toggleEdit = () => {
+    editing.value = !editing.value;
+};
+
+const updateOa = (closeCallback) => {
+    emit('updateOa', parseInt(localOA.value));
+    closeCallback();
+}
+
+const updateDa = (closeCallback) => {
+    emit('updateDa', parseInt(localDA.value));
+    closeCallback();
+}
+
+const updateHealth = (closeCallback) => {
+    emit('updateHealth', { current: parseInt(currentHealth.value), max: parseInt(maxHealth.value) });
+    closeCallback();
+}
 
 </script>
 

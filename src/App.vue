@@ -7,8 +7,22 @@
 
     <div class="content">
       <div class="creatures">
-        <GameCreature v-bind="monster"></GameCreature>
-        <GameCreature v-bind="player"></GameCreature>
+        <div>
+          <GameCreature
+            v-bind="monster"
+            @updateHealth="(val) => updateHealth(monster, val)"
+            @updateOa="(val) => updateOa(monster, val)"
+            @updateDa="(val) => updateDa(monster, val)">
+          </GameCreature>
+        </div>
+        <div>
+          <GameCreature
+            v-bind="player"
+            @updateHealth="(val) => updateHealth(player, val)"
+            @updateOa="(val) => updateOa(player, val)"
+            @updateDa="(val) => updateDa(player, val)">
+          </GameCreature>
+        </div>
 
         <section class="container game-over" v-if="winner">
           <h2>Game Over!</h2>
@@ -30,32 +44,46 @@
         </section>
       </div>
 
-      <!-- <section class="container">Round: {{ currentRound }} Winner: {{ winner }}</section> -->
-
-      <section id="log" class="container">
-        <h2>Log</h2>
-        <DataView :value="logs" paginator :rows="6">
-          <template #list="slotProps">
-            <div class="log">
-              <div v-for="(item, index) in slotProps.items" :key="index" class="log-item">
-                <div>{{ item.round }}</div>
-                <div :class="{ 'log-player': item.who === 'Player', 'log-monster': item.who === 'Monster' }">
-                  {{ item.who }}
-                </div>
-                <div :class="{ 'miss': item.action === 'missed' }">
-                  {{ item.action }}
-                </div>
-                <div>{{ item.value }}</div>
-              </div>
-            </div>
-          </template>
-        </DataView>
-
+      <section class="log-section container">
         <h2>Stats</h2>
-        <div>Player Average Damage</div>
-        <div>{{ playerDamageAverage }}</div>
-        <div>Monster Average Damage</div>
-        <div>{{ monsterDamageAverage }}</div>
+        <div class="stats">
+          <div class="item">
+            <label>Player Average Damage</label>
+            <div class="data">{{ playerDamageAverage }}</div>
+          </div>
+          <div class="item">
+            <label>Player Crits</label>
+            <div class="data">{{ playerCrits }}</div>
+          </div>
+          <div class="item">
+            <label>Monster Average Damage</label>
+            <div class="data">{{ monsterDamageAverage }}</div>
+          </div>
+          <div class="item">
+            <label>Monster Misses</label>
+            <div class="data">{{ monsterMisses }}</div>
+          </div>
+        </div>
+
+        <div>
+          <h2>Log</h2>
+          <DataView :value="logs">
+            <template #list="slotProps">
+              <div class="log">
+                <div v-for="(item, index) in slotProps.items" :key="index" class="log-item">
+                  <div>{{ item.round }}</div>
+                  <div :class="{ 'log-player': item.who === 'Player', 'log-monster': item.who === 'Monster' }">
+                    {{ item.who }}
+                  </div>
+                  <div :class="{ 'miss': item.action === 'missed', 'crit': item.action.indexOf('crit') >= 0 }">
+                    {{ item.action }}
+                  </div>
+                  <div>{{ item.value }}</div>
+                </div>
+              </div>
+            </template>
+          </DataView>
+        </div>
       </section>
     </div>
   </div>
@@ -75,11 +103,11 @@ import GameCreature from '@/components/GameCreature.vue';
 const monster = reactive({
   id: 'monster',
   name: 'Monster',
-  health: { current: 800, max: 800 },
-  offensiveAbility: 150,
+  health: { current: 750, max: 750 },
+  offensiveAbility: 250,
   defensiveAbility: 150,
   attack: {
-    melee: { min: 25, max: 50, name: 'melee' }
+    melee: { min: 25, max: 80, name: 'melee', apr: 1 }
   }
 });
 const player = reactive({
@@ -89,11 +117,12 @@ const player = reactive({
   offensiveAbility: 1500,
   defensiveAbility: 500,
   attack: {
-    melee: { min: 25, max: 50, name: 'melee' },
+    melee: { min: 25, max: 50, name: 'melee', apr: 2 },
     special: {
       min: 50,
       max: 75,
-      name: 'special'
+      name: 'special',
+      //apr: 1
     },
     heal: { min: 15, max: 40, name: 'heal' }
   }
@@ -117,17 +146,20 @@ const specialAttackDisabled = computed(() =>
 );
 
 const playerDamageAverage = ref(0);
+const playerCrits = ref(0);
 const monsterDamageAverage = ref(0);
+const monsterMisses = ref(0);
 watch(logs, () => {
-  const numbers = logs.value
-    .filter(x => x.who === 'Player' && x.action !== 'healed')
-    .map((x) => x.value.damage);
-  playerDamageAverage.value = numbers.length ? math.round(math.mean(numbers), 2) : 0;
+  const playerLogs = logs.value.filter(x => x.who === 'Player');
+  const monsterLogs = logs.value.filter(x => x.who === 'Monster');
 
-  const numbers2 = logs.value
-    .filter(x => x.who === 'Monster')
-    .map((x) => x.value.damage);
+  const numbers = playerLogs.filter(x => x.action !== 'healed').map((x) => x.value.damage);
+  playerDamageAverage.value = numbers.length ? math.round(math.mean(numbers), 2) : 0;
+  playerCrits.value = playerLogs.filter(x => x.action.includes('critical')).length;
+
+  const numbers2 = monsterLogs.map((x) => x.value.damage);
   monsterDamageAverage.value = numbers2.length ? math.round(math.mean(numbers2), 2) : 0;
+  monsterMisses.value = monsterLogs.filter(x => x.action === 'missed').length;
 });
 
 watch([() => monster.health.current, () => player.health.current],
@@ -184,11 +216,16 @@ const doBattleRound = (attackData) => {
   if (attackData.name === 'heal') {
     healPlayer(attackData);
   } else {
-    attack(player, monster, attackData);
+    const apr = attackData.apr ?? 1;
+    for (let i = 0; i < apr; i++) {
+      attack(player, monster, attackData);
+    }
   }
 
   if (monster.health.current > 0) {
-    attack(monster, player, monster.attack.melee);
+    for (let i = 0; i < monster.attack.melee.apr ?? 1; i++) {
+      attack(monster, player, monster.attack.melee);
+    }
   }
 };
 
@@ -207,22 +244,24 @@ const setHealth = (creature, value) => {
   creature.health.current = value;
 };
 
+const updateOa = (creature, oa) => {
+  creature.offensiveAbility = oa;
+}
+
+const updateDa = (creature, da) => {
+  creature.defensiveAbility = da;
+}
+
+const updateHealth = (creature, health) => {
+  creature.health = health;
+}
+
 const attack = (attacker, target, attackData) => {
   const hitData = getHitData(attacker.offensiveAbility, target.defensiveAbility)
-  const damage = (hitData.isSuccess
-    ? math.randomInt(attackData.min, attackData.max + 1)
-    : 0) * hitData.hitType.multiplier;
-
+  const damage = (hitData.isSuccess ? math.randomInt(attackData.min, attackData.max + 1) : 0) * hitData.hitType.multiplier;
   decreaseHealth(target, damage);
-
-  const attackType = hitData.isSuccess
-    ? `${attackData.name} ${hitData.hitType.type}`
-    : 'missed';
-  log(
-    attacker.name,
-    attackType,
-    { damage, hitData }
-  );
+  const attackType = hitData.isSuccess ? `${attackData.name} ${hitData.hitType.type}` : 'missed';
+  log(attacker.name, attackType, { damage, hitData });
 };
 
 const healPlayer = (data) => {
@@ -300,7 +339,27 @@ header {
 //   justify-self: center;
 // }
 
-#log {
+.log-section {
+  .stats {
+    display: flex;
+    gap: 1rem;
+
+    .item {
+      display: grid;
+      grid-template-columns: 1fr;
+
+      label {
+        color: gray;
+        font-size: 85%;
+      }
+
+      .data {
+        font-size: 2rem;
+        justify-self: center;
+      }
+    }
+  }
+
   .log {
     display: grid;
     grid-template-columns: 3rem 9rem 9rem 1fr;
@@ -314,6 +373,10 @@ header {
 
     &:has(.miss) {
       background-color: rgb(196, 196, 0);
+    }
+
+    &:has(.crit) {
+      background-color: rgb(116, 160, 253);
     }
   }
 
